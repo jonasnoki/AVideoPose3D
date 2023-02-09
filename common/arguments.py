@@ -31,6 +31,8 @@ def parse_args():
     parser.add_argument('--by-subject', action='store_true', help='break down error by subject (on evaluation)')
     parser.add_argument('--export-training-curves', action='store_true', help='save training curves as .png images')
 
+    parser.add_argument('--camera-augmentation', action='store_true', help='add additional cameras to augment the dataset')
+
     # Model arguments
     parser.add_argument('-s', '--stride', default=1, type=int, metavar='N', help='chunk size to use during training')
     parser.add_argument('-e', '--epochs', default=60, type=int, metavar='N', help='number of training epochs')

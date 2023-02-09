@@ -38,7 +38,7 @@ print('Loading dataset...')
 dataset_path = 'data/data_3d_' + args.dataset + '.npz'
 if args.dataset == 'h36m':
     from common.h36m_dataset import Human36mDataset
-    dataset = Human36mDataset(dataset_path)
+    dataset = Human36mDataset(dataset_path, args.camera_augmentation)
 elif args.dataset.startswith('humaneva'):
     from common.humaneva_dataset import HumanEvaDataset
     dataset = HumanEvaDataset(dataset_path)
@@ -62,7 +62,7 @@ for subject in dataset.subjects():
             anim['positions_3d'] = positions_3d
 
 print('Loading 2D detections...')
-keypoints = np.load('data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz', allow_pickle=True)
+keypoints = np.load('data/data_2d_' + args.dataset + '_' + args.keypoints + ("_augmented" if args.camera_augmentation else "") + '.npz', allow_pickle=True)
 keypoints_metadata = keypoints['metadata'].item()
 keypoints_symmetry = keypoints_metadata['keypoints_symmetry']
 kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
