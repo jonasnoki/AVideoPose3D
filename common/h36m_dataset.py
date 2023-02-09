@@ -7,6 +7,9 @@
 
 import numpy as np
 import copy
+
+from pyquaternion import Quaternion
+
 from common.skeleton import Skeleton
 from common.mocap_dataset import MocapDataset
 from common.camera import normalize_screen_coordinates, image_coordinates
@@ -207,10 +210,40 @@ h36m_cameras_extrinsic_params = {
 }
 
 class Human36mDataset(MocapDataset):
-    def __init__(self, path, remove_static_joints=True):
+    def __init__(self, path, augment=False, remove_static_joints=True):
         super().__init__(fps=50, skeleton=h36m_skeleton)
         
         self._cameras = copy.deepcopy(h36m_cameras_extrinsic_params)
+
+        if augment:
+            combination_pairs_with_factors = [
+                (0, 2, 0.25),
+                (2, 0, 0.25),
+                (1, 3, 0.25),
+                (3, 1, 0.25),
+                (0, 2, 0.5),
+                (1, 3, 0.5),
+            ]
+
+            # Add more virtual cameras between the 4 original ones
+            for subject_cameras in self._cameras.values():
+                for (a,b, factor) in combination_pairs_with_factors:
+                    if not subject_cameras[a] or not subject_cameras[b]:
+                        continue
+                    orientation_a = Quaternion(subject_cameras[a]['orientation'])
+                    orientation_b = Quaternion(subject_cameras[b]['orientation'])
+                    orientation = Quaternion.slerp(orientation_a, orientation_b, factor)
+                    position_a = np.array(subject_cameras[a]['translation'])
+                    position_b = np.array(subject_cameras[b]['translation'])
+                    translation = position_a + (position_b -  position_a) * factor
+                    subject_cameras.append({
+                        'orientation': orientation.elements,
+                        'translation': translation
+                    })
+
+            for (a, _, __) in combination_pairs_with_factors:
+                h36m_cameras_intrinsic_params.append(h36m_cameras_intrinsic_params[a])
+
         for cameras in self._cameras.values():
             for i, cam in enumerate(cameras):
                 cam.update(h36m_cameras_intrinsic_params[i])

@@ -19,9 +19,7 @@ from common.h36m_dataset import Human36mDataset
 from common.camera import world_to_camera, project_to_2d, image_coordinates
 from common.utils import wrap
 
-output_filename = 'data_3d_h36m'
-output_filename_2d = 'data_2d_h36m_gt'
-subjects = ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11']
+
 
 if __name__ == '__main__':
     if os.path.basename(os.getcwd()) != 'data':
@@ -40,8 +38,15 @@ if __name__ == '__main__':
     # Convert dataset from original source, using original .cdf files (the Human3.6M dataset path must be specified manually)
     # This option does not require MATLAB, but the Python library cdflib must be installed
     parser.add_argument('--from-source-cdf', default='', type=str, metavar='PATH', help='convert original dataset')
-    
+
+    # Determines if additional cameras should be uses to augment the dataset
+    parser.add_argument('--camera-augmentation', action='store_true', help='add additional cameras to augment the dataset')
+
     args = parser.parse_args()
+
+    output_filename = 'data_3d_h36m'
+    output_filename_2d = 'data_2d_h36m_gt' + ("_augmented" if args.camera_augmentation else "")
+    subjects = ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11']
     
     if args.from_archive and args.from_source:
         print('Please specify only one argument')
@@ -49,9 +54,7 @@ if __name__ == '__main__':
     
     if os.path.exists(output_filename + '.npz'):
         print('The dataset already exists at', output_filename + '.npz')
-        exit(0)
-        
-    if args.from_archive:
+    elif args.from_archive:
         print('Extracting Human3.6M dataset from', args.from_archive)
         with zipfile.ZipFile(args.from_archive, 'r') as archive:
             archive.extractall()
@@ -140,7 +143,7 @@ if __name__ == '__main__':
         np.savez_compressed(output_filename, positions_3d=output)
         
         print('Done.')
-            
+
     else:
         print('Please specify the dataset source')
         exit(0)
@@ -148,7 +151,7 @@ if __name__ == '__main__':
     # Create 2D pose file
     print('')
     print('Computing ground-truth 2D poses...')
-    dataset = Human36mDataset(output_filename + '.npz')
+    dataset = Human36mDataset(output_filename + '.npz', augment=args.camera_augmentation)
     output_2d_poses = {}
     for subject in dataset.subjects():
         output_2d_poses[subject] = {}
