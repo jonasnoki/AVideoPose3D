@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
+from datetime import datetime
 
 import numpy as np
 
@@ -594,7 +595,8 @@ if not args.evaluate:
             
         # Save checkpoint if necessary
         if epoch % args.checkpoint_frequency == 0:
-            chk_path = os.path.join(args.checkpoint, 'epoch_{}.bin'.format(epoch))
+            current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            chk_path = os.path.join(args.checkpoint, 'epoch_{}_{}.bin'.format(epoch, current_time))
             print('Saving checkpoint to', chk_path)
             
             torch.save({

@@ -209,6 +209,66 @@ h36m_cameras_extrinsic_params = {
     ],
 }
 
+
+def slerp_unclamped(q0, q1, amount=0.5):
+    """Spherical Linear Interpolation between quaternions.
+    Taken from pyquaternion module but without clamping the amount to [0, 1].
+    Implemented as described in https://en.wikipedia.org/wiki/Slerp
+
+    Find a valid quaternion rotation at a specified distance along the
+    minor arc of a great circle passing through any two existing quaternion
+    endpoints lying on the unit radius hypersphere.
+
+    This is a class method and is called as a method of the class itself rather than on a particular instance.
+
+    Params:
+        q0: first endpoint rotation as a Quaternion object
+        q1: second endpoint rotation as a Quaternion object
+        amount: interpolation parameter between 0 and 1. This describes the linear placement position of
+            the result along the arc between endpoints; 0 being at `q0` and 1 being at `q1`.
+            Defaults to the midpoint (0.5).
+
+    Returns:
+        A new Quaternion object representing the interpolated rotation. This is guaranteed to be a unit quaternion.
+
+    Note:
+        This feature only makes sense when interpolating between unit quaternions (those lying on the unit radius hypersphere).
+            Calling this method will implicitly normalise the endpoints to unit quaternions if they are not already unit length.
+    """
+    # Ensure quaternion inputs are unit quaternions and 0 <= amount <=1
+    q0._fast_normalise()
+    q1._fast_normalise()
+
+    # amount = np.clip(amount, 0, 1)
+
+    dot = np.dot(q0.q, q1.q)
+
+    # If the dot product is negative, slerp won't take the shorter path.
+    # Note that v1 and -v1 are equivalent when the negation is applied to all four components.
+    # Fix by reversing one quaternion
+    if dot < 0.0:
+        q0.q = -q0.q
+        dot = -dot
+
+    # sin_theta_0 can not be zero
+    if dot > 0.9995:
+        qr = Quaternion(q0.q + amount * (q1.q - q0.q))
+        qr._fast_normalise()
+        return qr
+
+    theta_0 = np.arccos(dot)  # Since dot is in range [0, 0.9995], np.arccos() is safe
+    sin_theta_0 = np.sin(theta_0)
+
+    theta = theta_0 * amount
+    sin_theta = np.sin(theta)
+
+    s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
+    s1 = sin_theta / sin_theta_0
+    qr = Quaternion((s0 * q0.q) + (s1 * q1.q))
+    qr._fast_normalise()
+    return qr
+
+
 class Human36mDataset(MocapDataset):
     def __init__(self, path, augment=False, remove_static_joints=True):
         super().__init__(fps=50, skeleton=h36m_skeleton)
@@ -216,13 +276,22 @@ class Human36mDataset(MocapDataset):
         self._cameras = copy.deepcopy(h36m_cameras_extrinsic_params)
 
         if augment:
+            # combination_pairs_with_factors = [
+            #     (0, 2, 0.25),
+            #     (2, 0, 0.25),
+            #     (1, 3, 0.25),
+            #     (3, 1, 0.25),
+            #     (0, 2, 0.5),
+            #     (1, 3, 0.5),
+            # ]
+
             combination_pairs_with_factors = [
-                (0, 2, 0.25),
-                (2, 0, 0.25),
-                (1, 3, 0.25),
-                (3, 1, 0.25),
                 (0, 2, 0.5),
+                # (2, 0, 1.25),
+                # (0, 2, 1.25),
                 (1, 3, 0.5),
+                # (3, 1, 1.25),
+                # (1, 3, 1.25),
             ]
 
             # Add more virtual cameras between the 4 original ones
@@ -282,7 +351,7 @@ class Human36mDataset(MocapDataset):
             # Rewire shoulders to the correct parents
             self._skeleton._parents[11] = 8
             self._skeleton._parents[14] = 8
-            
+
     def supports_semi_supervised(self):
         return True
    
